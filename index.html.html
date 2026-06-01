@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌿 הקהילה הירוקה</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Segoe UI', 'Tahoma', 'Arial', 'sans-serif'] },
+          keyframes: {
+            fadeIn:  { from: { opacity: '0' },                              to: { opacity: '1' } },
+            slideUp: { from: { opacity: '0', transform: 'translateY(20px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+            shake:   { '0%,100%': { transform: 'translateX(0)' }, '20%,60%': { transform: 'translateX(-8px)' }, '40%,80%': { transform: 'translateX(8px)' } },
+          },
+          animation: {
+            'fade-in':  'fadeIn 0.35s ease',
+            'slide-up': 'slideUp 0.35s ease',
+            'shake':    'shake 0.4s ease',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
+    .chat-messages { height: 320px; overflow-y: auto; scroll-behavior: smooth; }
+    .progress-bar-inner { transition: width 0.9s cubic-bezier(0.4,0,0.2,1); }
+    .bottle-btn { transition: transform 0.12s ease, box-shadow 0.12s ease; }
+    .bottle-btn:active { transform: scale(0.88) !important; }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(16,185,129,0.15); }
+    .admin-msg { background: linear-gradient(135deg,#d1fae5,#a7f3d0); border-right: 4px solid #10b981; }
+    .user-msg  { background: #f8fafc; border-right: 4px solid #94a3b8; }
+    input:focus, textarea:focus { outline: none; }
+    .login-bg {
+      background: radial-gradient(ellipse at top, #064e3b 0%, #065f46 40%, #047857 70%, #059669 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-100 min-h-screen">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── קוד הכניסה ── */
+const ACCESS_CODE    = 'ירוק2026';
+const ADMIN_CODE     = 'מנהל2026';
+
+/* ── אייקונים ── */
+const Icon = ({ d, size = 20, className = '', strokeWidth = 2 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
+    strokeLinejoin="round" className={className}>
+    {Array.isArray(d) ? d.map((p,i) => <path key={i} d={p}/>) : <path d={d}/>}
+  </svg>
+);
+const IC = {
+  shield:   "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  trash:    "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
+  send:     "M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z",
+  plus:     "M12 5v14M5 12h14",
+  settings: ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"],
+  leaf:     "M2 22c0 0 5-5 10-9S22 2 22 2c0 0-5 5-10 9S2 22 2 22z",
+  bottle:   ["M9 2h6v3H9z","M8 5c0 0-2 2-2 7s2 10 6 10 6-5 6-10-2-7-2-7"],
+  chat:     "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  newspaper:["M4 2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z","M8 6h8M8 10h8M8 14h4"],
+  target:   ["M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z","M12 18c3.31 0 6-2.69 6-6s-2.69-6-6-6-6 2.69-6 6 2.69 6 6 6z","M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  user:     ["M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2","M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
+  lock:     ["M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z","M7 11V7a5 5 0 0 1 10 0v4"],
+  eye:      ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z","M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"],
+  eyeOff:   ["M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94","M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19","M1 1l22 22"],
+  check:    "M20 6L9 17l-5-5",
+  recycle:  ["M7 19H4.815a1.83 1.83 0 0 1-1.57-2.763L7.196 9.5","M11 19h8.203a1.83 1.83 0 0 0 1.556-2.769l-6.21-10.56A1.83 1.83 0 0 0 12.426 5H11","M5.235 5.47L3 9.5","M22 9.5h-8.5"],
+  shekel:   "M6 4h6a6 6 0 0 1 0 12H6M6 4v16M18 4v16",
+};
+
+/* ── נתוני ברירת מחדל ── */
+const INITIAL_ARTICLES = [
+  { id: 1, title: "מחזור בקבוקים — כל בקבוק שווה!", content: "בישראל, כל בקבוק ממוחזר שווה 30 אגורות. הצטרפו למהפכה הירוקה שלנו ועזרו לקהילה לאסוף כמה שיותר בקבוקים. ביחד אנחנו יכולים לנקות את הסביבה ולממן פעילויות קהילתיות ירוקות.", author: "צוות הקהילה הירוקה", date: "1 ביוני 2026" },
+  { id: 2, title: "אנרגיה סולארית לשכונה שלנו",       content: "פרויקט חדש ומרגש: התקנת לוחות סולאריים על גגות הבתים בשכונה. הפרויקט צפוי לחסוך 40% מצריכת החשמל ולהפחית את טביעת הרגל הפחמנית שלנו ב-60 טון CO₂ בשנה.", author: "דנה לוי", date: "28 במאי 2026" },
+  { id: 3, title: "גינה קהילתית אורגנית — בואו להצטרף!", content: "פתחנו גינה קהילתית אורגנית בפארק המרכזי. ניתן לגדל ירקות, עשבי תיבול ופרחים. הגינה פתוחה לכל דיירי השכונה. נרשמנו כבר ל-45 משפחות!", author: "ירון כהן", date: "20 במאי 2026" },
+];
+const INITIAL_MESSAGES = [
+  { id: 1, author: "מנהל המערכת", text: "ברוכים הבאים לצ'אט הירוק של הקהילה! 🌿 כאן נשתף מידע, רעיונות וחדשות סביבתיות.", time: "09:00", isAdmin: true },
+  { id: 2, author: "רחל אברהם",   text: "היי לכולם! רציתי לשתף שהצלחתי לאסוף 50 בקבוקים השבוע 🎉", time: "09:15", isAdmin: false },
+  { id: 3, author: "יוסי שפירא",  text: "כל הכבוד רחל! אני אוסף כבר 3 חודשים ויש לי 200 בקבוקים. זה ממכר בצורה הכי טובה 😄", time: "09:22", isAdmin: false },
+];
+
+/* ══════════════════════════════════════════
+   מסך כניסה
+══════════════════════════════════════════ */
+function LoginScreen({ onLogin }) {
+  const [code,       setCode]       = useState('');
+  const [showCode,   setShowCode]   = useState(false);
+  const [error,      setError]      = useState('');
+  const [shaking,    setShaking]    = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!code.trim()) { triggerError('נא להזין קוד כניסה'); return; }
+    setLoading(true);
+    setTimeout(() => {
+      if (code === ACCESS_CODE) {
+        onLogin('user');
+      } else if (code === ADMIN_CODE) {
+        onLogin('admin');
+      } else {
+        setLoading(false);
+        triggerError('קוד שגוי — נסה שוב');
+        setCode('');
+      }
+    }, 700);
+  }
+
+  function triggerError(msg) {
+    setError(msg);
+    setShaking(true);
+    setTimeout(() => setShaking(false), 450);
+  }
+
+  return (
+    <div className="login-bg flex items-center justify-center min-h-screen px-4">
+      {/* עיגולים דקורטיביים */}
+      <div className="absolute top-10 left-10 w-48 h-48 rounded-full bg-emerald-400 opacity-10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 right-16 w-64 h-64 rounded-full bg-teal-300 opacity-10 blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md animate-slide-up">
+        {/* לוגו */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-white/10 backdrop-blur mb-4 border border-white/20 shadow-2xl">
+            <span className="text-5xl">🌿</span>
+          </div>
+          <h1 className="text-4xl font-black text-white mb-2 drop-shadow-lg">הקהילה הירוקה</h1>
+          <p className="text-emerald-200 text-base">ביחד לסביבה בריאה יותר 💚</p>
+        </div>
+
+        {/* כרטיס הכניסה */}
+        <div className="glass rounded-3xl p-8 shadow-2xl">
+          <h2 className="text-xl font-black text-white mb-1 flex items-center gap-2">
+            <Icon d={IC.lock} size={20} className="text-emerald-300" />
+            כניסה לאתר
+          </h2>
+          <p className="text-emerald-200/70 text-sm mb-6">הזן קוד כניסה כדי להמשיך</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className={shaking ? 'animate-shake' : ''}>
+              <label className="text-emerald-200 text-sm font-bold block mb-2">קוד כניסה</label>
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type={showCode ? 'text' : 'password'}
+                  value={code}
+                  onChange={e => { setCode(e.target.value); setError(''); }}
+                  placeholder="הזן את קוד הכניסה..."
+                  className="w-full bg-white/10 border-2 border-white/20 focus:border-emerald-400 text-white placeholder-white/30 rounded-2xl px-4 py-3.5 text-base font-medium transition-all"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCode(v => !v)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                >
+                  <Icon d={showCode ? IC.eyeOff : IC.eye} size={18} />
+                </button>
+              </div>
+              {error && (
+                <p className="text-red-300 text-sm mt-2 font-medium flex items-center gap-1">
+                  ⚠️ {error}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-l from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-60 text-white font-black py-4 rounded-2xl text-base shadow-xl shadow-emerald-900/40 transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                  מאמת...
+                </>
+              ) : (
+                <>
+                  <Icon d={IC.check} size={18} />
+                  כניסה לאתר
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/10 text-center">
+            <p className="text-emerald-200/60 text-xs">
+              🔒 האתר מיועד לחברי הקהילה הירוקה בלבד
+            </p>
+          </div>
+        </div>
+
+        {/* קישוט תחתון */}
+        <div className="text-center mt-6">
+          <p className="text-emerald-200/40 text-xs">🌿 הקהילה הירוקה © 2026</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   פס מצב מנהל
+══════════════════════════════════════════ */
+function AdminToggleBar({ isAdmin, setIsAdmin }) {
+  return (
+    <div className={`w-full py-2 px-4 flex items-center justify-between flex-wrap gap-2 text-sm font-bold transition-colors duration-300
+      ${isAdmin ? 'bg-emerald-700 text-white' : 'bg-slate-700 text-slate-100'}`}>
+      <div className="flex items-center gap-2">
+        <Icon d={IC.shield} size={16} className={isAdmin ? 'text-yellow-300' : 'text-slate-400'} />
+        <span>{isAdmin ? '🔑 מצב מנהל פעיל — כל הפעולות זמינות' : '👤 מצב משתמש רגיל'}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-normal opacity-75">סימולטור תפקידים:</span>
+        <button onClick={() => setIsAdmin(false)}
+          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-all duration-200
+            ${!isAdmin ? 'bg-white text-slate-800 shadow-md' : 'bg-white/10 hover:bg-white/20'}`}>
+          <Icon d={IC.user} size={12} /> משתמש רגיל
+        </button>
+        <button onClick={() => setIsAdmin(true)}
+          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-all duration-200
+            ${isAdmin ? 'bg-yellow-400 text-slate-900 shadow-md font-black' : 'bg-white/10 hover:bg-white/20'}`}>
+          <Icon d={IC.shield} size={12} /> מנהל מערכת
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   ספירת בקבוקים
+══════════════════════════════════════════ */
+function BottleCounter({ isAdmin }) {
+  const [bottleCount,   setBottleCount]   = useState(120);
+  const [bottleTarget,  setBottleTarget]  = useState(1500);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [tempTarget,    setTempTarget]    = useState('');
+  const [bounce,        setBounce]        = useState(false);
+  const [plusAnim,      setPlusAnim]      = useState(false);
+
+  const percent   = Math.min(100, Math.round((bottleCount / bottleTarget) * 100));
+  const earned    = (bottleCount * 0.30).toFixed(2);
+  const remaining = Math.max(0, bottleTarget - bottleCount);
+
+  function handleBottleClick() {
+    setBottleCount(c => c + 1);
+    setBounce(true);
+    setPlusAnim(true);
+    setTimeout(() => setBounce(false), 250);
+    setTimeout(() => setPlusAnim(false), 600);
+  }
+
+  function saveTarget() {
+    const val = parseInt(tempTarget);
+    if (!isNaN(val) && val > 0) setBottleTarget(val);
+    setEditingTarget(false);
+  }
+
+  return (
+    <div className="animate-slide-up">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-black text-emerald-800 mb-2">ספירת בקבוקים 🍶</h2>
+        <p className="text-slate-500">כל בקבוק שווה 30 אגורות לקהילה הירוקה שלנו</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+        {/* ── כרטיס הבקבוק ── */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 card-hover text-center border border-emerald-100">
+          <h3 className="text-lg font-bold text-emerald-700 mb-6 flex items-center justify-center gap-2">
+            <Icon d={IC.bottle} size={20} />
+            לחץ להוסיף בקבוק
+          </h3>
+
+          <div className="relative inline-block mb-6">
+            <button
+              onClick={handleBottleClick}
+              className={`bottle-btn w-36 h-36 rounded-full flex flex-col items-center justify-center text-6xl shadow-xl cursor-pointer
+                bg-gradient-to-br from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 hover:shadow-2xl hover:shadow-emerald-300
+                ${bounce ? 'scale-90' : 'scale-100'} transition-transform duration-150`}
+            >
+              🍶
+            </button>
+            {plusAnim && (
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-emerald-600 font-black text-2xl animate-fade-in pointer-events-none select-none">
+                +1
+              </div>
+            )}
+          </div>
+
+          <div className="text-5xl font-black text-emerald-700 mb-1 tabular-nums">
+            {bottleCount.toLocaleString()}
+          </div>
+          <div className="text-slate-500 text-sm">בקבוקים נאספו</div>
+          <div className="mt-3 text-xs text-emerald-600 bg-emerald-50 rounded-xl px-3 py-1.5 inline-block border border-emerald-100">
+            לחץ על הבקבוק להוסיף ♻️
+          </div>
+        </div>
+
+        {/* ── כרטיס הכנסות ── */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 card-hover border border-teal-100">
+          <h3 className="text-lg font-bold text-teal-700 mb-6 flex items-center gap-2">
+            <Icon d={IC.shekel} size={20} />
+            חישוב הכנסות
+          </h3>
+          <div className="text-center mb-6">
+            <div className="text-5xl font-black text-teal-600 mb-1">₪{earned}</div>
+            <div className="text-slate-500 text-sm">הרוויחה הקהילה עד כה</div>
+          </div>
+          <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">מחיר לבקבוק:</span>
+              <span className="font-bold text-teal-700">₪0.30 (30 אגורות)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">מספר בקבוקים:</span>
+              <span className="font-bold text-slate-700">{bottleCount.toLocaleString()}</span>
+            </div>
+            <div className="border-t border-teal-200 pt-2 flex justify-between">
+              <span className="font-bold text-slate-700">סה"כ הכנסה:</span>
+              <span className="font-black text-teal-600 text-lg">₪{earned}</span>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-slate-400 text-center">
+            נוסחה: {bottleCount} × ₪0.30 = ₪{earned}
+          </div>
+        </div>
+      </div>
+
+      {/* ── פס התקדמות ── */}
+      <div className="bg-white rounded-2xl shadow-lg p-8 card-hover border border-emerald-100">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <h3 className="text-lg font-bold text-emerald-700 flex items-center gap-2">
+            <Icon d={IC.target} size={20} />
+            יעד הקהילה
+          </h3>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              {editingTarget ? (
+                <>
+                  <input
+                    type="number"
+                    value={tempTarget}
+                    onChange={e => setTempTarget(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && saveTarget()}
+                    className="w-28 border-2 border-emerald-400 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-700 text-center focus:border-emerald-600"
+                    placeholder="יעד חדש"
+                    autoFocus
+                  />
+                  <button onClick={saveTarget}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-xl text-sm font-bold transition-colors">שמור</button>
+                  <button onClick={() => setEditingTarget(false)}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl text-sm font-bold transition-colors">ביטול</button>
+                </>
+              ) : (
+                <button onClick={() => { setTempTarget(String(bottleTarget)); setEditingTarget(true); }}
+                  className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                  <Icon d={IC.settings} size={14} /> ערוך יעד
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-end justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <span className="text-3xl font-black text-emerald-700">{bottleCount.toLocaleString()}</span>
+            <span className="text-slate-400 text-lg font-bold"> / {bottleTarget.toLocaleString()}</span>
+            <span className="text-slate-400 text-sm mr-2">בקבוקים</span>
+          </div>
+          <div className={`text-2xl font-black px-4 py-1 rounded-xl
+            ${percent >= 100 ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            {percent}%
+          </div>
+        </div>
+
+        <div className="w-full h-8 bg-slate-100 rounded-full overflow-hidden shadow-inner mb-4 relative">
+          <div
+            className={`progress-bar-inner h-full rounded-full flex items-center justify-end pr-3
+              ${percent >= 100 ? 'bg-gradient-to-l from-yellow-400 to-amber-500 shadow-lg shadow-yellow-200'
+              : percent >= 75  ? 'bg-gradient-to-l from-emerald-500 to-teal-400 shadow-lg shadow-emerald-200'
+              : percent >= 40  ? 'bg-gradient-to-l from-teal-400 to-cyan-400'
+                               : 'bg-gradient-to-l from-cyan-400 to-sky-400'}`}
+            style={{ width: `${Math.max(percent, 1)}%` }}
+          >
+            {percent > 12 && <span className="text-white text-xs font-black">{percent}%</span>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+            <div className="text-2xl font-black text-emerald-700">{bottleCount.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-0.5">נאספו</div>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+            <div className="text-2xl font-black text-slate-600">{remaining.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-0.5">נותרו</div>
+          </div>
+          <div className="bg-teal-50 rounded-xl p-3 text-center border border-teal-100">
+            <div className="text-2xl font-black text-teal-700">₪{earned}</div>
+            <div className="text-xs text-slate-500 mt-0.5">הורווח</div>
+          </div>
+        </div>
+
+        {percent >= 100 && (
+          <div className="mt-4 bg-yellow-50 border border-yellow-300 rounded-xl p-4 text-center">
+            <div className="text-2xl mb-1">🎉</div>
+            <div className="font-black text-yellow-700 text-lg">הגענו ליעד! כל הכבוד לקהילה הירוקה!</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   כתבות ומאמרים
+══════════════════════════════════════════ */
+function ArticlesFeed({ isAdmin }) {
+  const [articles, setArticles] = useState(INITIAL_ARTICLES);
+  const [title,    setTitle]    = useState('');
+  const [content,  setContent]  = useState('');
+  const [author,   setAuthor]   = useState('');
+  const [error,    setError]    = useState('');
+  const [deletedId, setDeletedId] = useState(null);
+
+  function addArticle() {
+    if (!title.trim() || !content.trim() || !author.trim()) {
+      setError('יש למלא את כל השדות');
+      return;
+    }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+    setArticles(prev => [{ id: Date.now(), title: title.trim(), content: content.trim(), author: author.trim(), date: dateStr, isNew: true }, ...prev]);
+    setTitle(''); setContent(''); setAuthor(''); setError('');
+  }
+
+  function deleteArticle(id) {
+    setDeletedId(id);
+    setTimeout(() => { setArticles(prev => prev.filter(a => a.id !== id)); setDeletedId(null); }, 350);
+  }
+
+  return (
+    <div className="animate-slide-up">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-black text-emerald-800 mb-2">כתבות ומאמרים 📰</h2>
+        <p className="text-slate-500">תכנים ירוקים מהקהילה שלנו</p>
+      </div>
+
+      {isAdmin && (
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-6 mb-8 shadow-md animate-fade-in">
+          <h3 className="text-lg font-black text-emerald-700 mb-4 flex items-center gap-2">
+            <Icon d={IC.plus} size={20} />
+            פרסם כתבה חדשה
+            <span className="bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded-full font-bold mr-auto">מנהל בלבד</span>
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-bold text-slate-600 block mb-1">כותרת הכתבה</label>
+              <input value={title} onChange={e => { setTitle(e.target.value); setError(''); }}
+                placeholder="לדוגמה: מחזור בקבוקים — איך להתחיל?"
+                className="w-full border-2 border-emerald-200 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-slate-700 text-sm transition-colors" />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-slate-600 block mb-1">תוכן הכתבה</label>
+              <textarea value={content} onChange={e => { setContent(e.target.value); setError(''); }}
+                placeholder="כתוב את הכתבה כאן..." rows={4}
+                className="w-full border-2 border-emerald-200 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-slate-700 text-sm transition-colors resize-none" />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-slate-600 block mb-1">שם הכותב</label>
+              <input value={author} onChange={e => { setAuthor(e.target.value); setError(''); }}
+                placeholder="השם שלך"
+                className="w-full border-2 border-emerald-200 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-slate-700 text-sm transition-colors" />
+            </div>
+            {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-2 rounded-xl">⚠️ {error}</div>}
+            <button onClick={addArticle}
+              className="w-full bg-gradient-to-l from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black py-3 rounded-xl shadow-md shadow-emerald-200 transition-all duration-200 flex items-center justify-center gap-2">
+              <Icon d={IC.plus} size={18} /> פרסם כתבה
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {articles.map(article => (
+          <div key={article.id}
+            className={`bg-white rounded-2xl shadow-md card-hover border border-slate-100 overflow-hidden transition-all duration-350
+              ${deletedId === article.id ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
+              ${article.isNew ? 'border-r-4 border-r-emerald-500' : ''}`}>
+            {article.isNew && (
+              <div className="bg-emerald-500 text-white text-xs font-black px-4 py-1.5 flex items-center gap-1.5">
+                <Icon d={IC.check} size={12} /> פורסם כעת
+              </div>
+            )}
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 className="text-xl font-black text-slate-800 leading-snug flex-1">{article.title}</h3>
+                {isAdmin && (
+                  <button onClick={() => deleteArticle(article.id)} title="מחק כתבה"
+                    className="flex-shrink-0 p-2 rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-all duration-200">
+                    <Icon d={IC.trash} size={18} />
+                  </button>
+                )}
+              </div>
+              <p className="text-slate-600 leading-relaxed text-sm mb-4">{article.content}</p>
+              <div className="flex items-center gap-3 text-xs text-slate-400 border-t border-slate-100 pt-3">
+                <div className="flex items-center gap-1">
+                  <Icon d={IC.user} size={13} />
+                  <span className="font-bold text-slate-500">{article.author}</span>
+                </div>
+                <span>•</span>
+                <span>{article.date}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {articles.length === 0 && (
+        <div className="text-center py-20 text-slate-400">
+          <div className="text-5xl mb-4">📭</div>
+          <div className="font-bold text-lg">אין כתבות עדיין</div>
+          {isAdmin && <div className="text-sm mt-2">השתמש בטופס למעלה לפרסום הכתבה הראשונה</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   צ'אט ירוק
+══════════════════════════════════════════ */
+function GreenChat({ isAdmin }) {
+  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [input,    setInput]    = useState('');
+  const [name,     setName]     = useState('');
+  const [nameSet,  setNameSet]  = useState(false);
+  const endRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const displayName = isAdmin ? 'מנהל המערכת' : (nameSet ? name : '');
+
+  function send() {
+    const text = input.trim();
+    if (!text || (!isAdmin && !nameSet)) return;
+    const now = new Date();
+    setMessages(prev => [...prev, {
+      id: Date.now(), author: displayName, text,
+      time: now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+      isAdmin,
+    }]);
+    setInput('');
+  }
+
+  return (
+    <div className="animate-slide-up max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-black text-emerald-800 mb-2">צ'אט ירוק 💬</h2>
+        <p className="text-slate-500">שוחח עם חברי הקהילה הירוקה</p>
+      </div>
+
+      {!isAdmin && !nameSet && (
+        <div className="bg-white rounded-2xl shadow-md border border-emerald-100 p-6 mb-5 animate-fade-in">
+          <h3 className="font-black text-slate-700 mb-3 flex items-center gap-2">
+            <Icon d={IC.user} size={18} className="text-emerald-500" />
+            מה השם שלך?
+          </h3>
+          <div className="flex gap-3">
+            <input value={name} onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && name.trim().length >= 2 && setNameSet(true)}
+              placeholder="הכנס את שמך..."
+              className="flex-1 border-2 border-emerald-200 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-sm transition-colors" />
+            <button onClick={() => name.trim().length >= 2 && setNameSet(true)}
+              disabled={name.trim().length < 2}
+              className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold px-5 py-2.5 rounded-xl transition-all text-sm">
+              אישור
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+        <div className="bg-gradient-to-l from-emerald-600 to-teal-500 px-5 py-3.5 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+            <Icon d={IC.leaf} size={16} className="text-white" />
+          </div>
+          <div>
+            <div className="text-white font-black text-sm">צ'אט הקהילה הירוקה</div>
+            <div className="text-emerald-100 text-xs">{messages.length} הודעות</div>
+          </div>
+          <div className="mr-auto flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-green-300 animate-pulse"></div>
+            <span className="text-emerald-100 text-xs">פעיל</span>
+          </div>
+        </div>
+
+        <div className="chat-messages p-4 bg-gradient-to-b from-slate-50 to-white space-y-3">
+          {messages.map(msg => (
+            <div key={msg.id} className={`rounded-xl p-3.5 text-sm animate-fade-in ${msg.isAdmin ? 'admin-msg' : 'user-msg'}`}>
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                {msg.isAdmin && (
+                  <span className="flex items-center gap-1 bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                    <Icon d={IC.shield} size={10} /> מנהל
+                  </span>
+                )}
+                <span className={`font-black text-sm ${msg.isAdmin ? 'text-emerald-800' : 'text-slate-700'}`}>{msg.author}</span>
+                <span className="text-slate-400 text-xs mr-auto">{msg.time}</span>
+              </div>
+              <p className={`leading-relaxed ${msg.isAdmin ? 'text-emerald-900' : 'text-slate-600'}`}>{msg.text}</p>
+            </div>
+          ))}
+          <div ref={endRef} />
+        </div>
+
+        <div className="border-t border-slate-100 p-4">
+          {(!isAdmin && !nameSet) ? (
+            <div className="text-center text-slate-400 text-sm py-2">הזן את שמך למעלה כדי להצטרף לשיחה</div>
+          ) : (
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <div className="text-xs mb-1.5 flex items-center gap-1 font-bold">
+                  {isAdmin
+                    ? <><Icon d={IC.shield} size={11} className="text-emerald-600" /><span className="text-emerald-600">שולח בתור: מנהל המערכת</span></>
+                    : <span className="text-slate-400">שולח בתור: <span className="text-slate-600">{name}</span></span>}
+                </div>
+                <textarea value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  placeholder="כתוב הודעה... (Enter לשליחה)" rows={2}
+                  className="w-full border-2 border-emerald-200 focus:border-emerald-500 rounded-xl px-4 py-2.5 text-sm transition-colors resize-none" />
+              </div>
+              <button onClick={send} disabled={!input.trim()}
+                className="bg-gradient-to-t from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white p-3 rounded-xl transition-all duration-200 shadow-md mb-0.5 flex-shrink-0">
+                <Icon d={IC.send} size={20} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   הרכיב הראשי
+══════════════════════════════════════════ */
+function App() {
+  const [loggedIn,  setLoggedIn]  = useState(false);
+  const [isAdmin,   setIsAdmin]   = useState(false);
+  const [activeTab, setActiveTab] = useState('bottles');
+
+  function handleLogin(role) {
+    setIsAdmin(role === 'admin');
+    setLoggedIn(true);
+  }
+
+  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
+
+  return (
+    <div className="min-h-screen">
+      <AdminToggleBar isAdmin={isAdmin} setIsAdmin={setIsAdmin} />
+
+      <header className="bg-gradient-to-l from-emerald-700 to-teal-600 text-white shadow-xl">
+        <div className="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-2xl p-2.5">
+              <Icon d={IC.leaf} size={28} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-wide">הקהילה הירוקה 🌿</h1>
+              <p className="text-emerald-100 text-sm">ביחד לסביבה בריאה יותר</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Icon d={IC.recycle} size={18} className="text-emerald-200" />
+              <span className="text-emerald-100 text-sm font-medium">שמור על הפלנטה שלנו ♻️</span>
+            </div>
+            <button onClick={() => setLoggedIn(false)}
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/20">
+              <Icon d={IC.lock} size={12} /> יציאה
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <nav className="bg-white shadow-md sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto py-2">
+          {[
+            { id: 'bottles',  label: 'ספירת בקבוקים', icon: IC.bottle },
+            { id: 'articles', label: 'כתבות ומאמרים', icon: IC.newspaper },
+            { id: 'chat',     label: "צ'אט ירוק",     icon: IC.chat },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all duration-200
+                ${activeTab === tab.id
+                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200'
+                  : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'}`}>
+              <Icon d={tab.icon} size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {activeTab === 'bottles'  && <BottleCounter isAdmin={isAdmin} />}
+        {activeTab === 'articles' && <ArticlesFeed  isAdmin={isAdmin} />}
+        {activeTab === 'chat'     && <GreenChat     isAdmin={isAdmin} />}
+      </main>
+
+      <footer className="bg-emerald-900 text-emerald-200 text-center py-5 text-sm mt-8">
+        <p className="font-bold text-base text-white mb-1">🌿 הקהילה הירוקה</p>
+        <p>ביחד נשמור על הסביבה לדורות הבאים 💚</p>
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
