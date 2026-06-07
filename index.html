@@ -269,12 +269,21 @@ function AdminToggleBar({ isAdmin, setIsAdmin }) {
    ספירת בקבוקים
 ══════════════════════════════════════════ */
 function BottleCounter({ isAdmin }) {
-  const [bottleCount,   setBottleCount]   = useState(0);
-  const [bottleTarget,  setBottleTarget]  = useState(1500);
+  const [bottleCount,   setBottleCount]   = useState(() => {
+    const saved = localStorage.getItem('bottleCount');
+    return saved !== null ? parseInt(saved) : 0;
+  });
+  const [bottleTarget,  setBottleTarget]  = useState(() => {
+    const saved = localStorage.getItem('bottleTarget');
+    return saved !== null ? parseInt(saved) : 1500;
+  });
   const [editingTarget, setEditingTarget] = useState(false);
   const [tempTarget,    setTempTarget]    = useState('');
   const [bounce,        setBounce]        = useState(false);
   const [plusAnim,      setPlusAnim]      = useState(false);
+
+  useEffect(() => { localStorage.setItem('bottleCount',  String(bottleCount));  }, [bottleCount]);
+  useEffect(() => { localStorage.setItem('bottleTarget', String(bottleTarget)); }, [bottleTarget]);
 
   const percent   = Math.min(100, Math.round((bottleCount / bottleTarget) * 100));
   const earned    = (bottleCount * 0.30).toFixed(2);
