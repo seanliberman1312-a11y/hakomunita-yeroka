@@ -105,12 +105,18 @@ function LoginScreen({ onLogin }) {
   const [error,      setError]      = useState('');
   const [shaking,    setShaking]    = useState(false);
   const [loading,    setLoading]    = useState(false);
-  const inputRef = useRef(null);
+  const [honeypot,   setHoneypot]   = useState('');
+  const inputRef  = useRef(null);
+  const loadTime  = useRef(Date.now());
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   function handleSubmit(e) {
     e.preventDefault();
+    // בוט שמילא את שדה המלכודת הנסתר — חסום
+    if (honeypot) return;
+    // בוט שהגיש את הטופס מהר מדי (פחות מ-1.2 שניות) — חסום
+    if (Date.now() - loadTime.current < 1200) return;
     if (!code.trim()) { triggerError('נא להזין קוד כניסה'); return; }
     setLoading(true);
     setTimeout(() => {
@@ -157,6 +163,16 @@ function LoginScreen({ onLogin }) {
           <p className="text-emerald-200/70 text-sm mb-6">הזן קוד כניסה כדי להמשיך</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* שדה מלכודת — נסתר מאנשים, בוטים ממלאים אותו */}
+            <input
+              type="text"
+              value={honeypot}
+              onChange={e => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              aria-hidden="true"
+              style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0 }}
+              autoComplete="off"
+            />
             <div className={shaking ? 'animate-shake' : ''}>
               <label className="text-emerald-200 text-sm font-bold block mb-2">קוד כניסה</label>
               <div className="relative">
