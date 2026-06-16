@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🌿 הקהילה הירוקה</title>
-  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -61,19 +60,8 @@
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
-/* ── Gun.js — סנכרון בזמן אמת בין כל המשתמשים ── */
-const gun = Gun(['https://gun-manhattan.herokuapp.com/gun', 'https://gun-us.herokuapp.com/gun']);
-const db  = gun.get('hakomunita-yeroka-community-2026');
-
-/* מזהה ייחודי לדפדפן הזה — נשמר ב-localStorage */
-const SESSION_ID = (() => {
-  const k = 'hky-sid';
-  return localStorage.getItem(k) || (() => {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    localStorage.setItem(k, id);
-    return id;
-  })();
-})();
+/* ── BroadcastChannel — סנכרון בזמן אמת בין טאבים ── */
+const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('hky-bottles') : null;
 
 /* ── קוד הכניסה ── */
 const ACCESS_CODE    = 'ירוק2026';
@@ -284,23 +272,26 @@ function AdminToggleBar({ isAdmin, setIsAdmin }) {
    ספירת בקבוקים
 ══════════════════════════════════════════ */
 function BottleCounter({ isAdmin }) {
-  const [bottleCount,   setBottleCount]   = useState(0);
-  const [bottleTarget,  setBottleTarget]  = useState(1500);
+  const [bottleCount,   setBottleCount]   = useState(() => parseInt(localStorage.getItem('hky-count') || '0'));
+  const [bottleTarget,  setBottleTarget]  = useState(() => parseInt(localStorage.getItem('hky-target') || '1500'));
   const [editingTarget, setEditingTarget] = useState(false);
   const [tempTarget,    setTempTarget]    = useState('');
   const [bounce,        setBounce]        = useState(false);
   const [plusAnim,      setPlusAnim]      = useState(false);
-  const countsRef = useRef({});
 
+  /* סנכרון בין טאבים באותו דפדפן */
   useEffect(() => {
-    /* האזנה בזמן אמת לכל הבקבוקים של כל המשתמשים (CRDT — אין race condition) */
-    db.get('bottles').map().on((v, k) => {
-      if (k === '_' || typeof v !== 'number') return;
-      countsRef.current[k] = v;
-      setBottleCount(Object.values(countsRef.current).reduce((s, n) => s + (n || 0), 0));
-    });
-    /* האזנה ליעד */
-    db.get('target').on(v => { if (typeof v === 'number' && v > 0) setBottleTarget(v); });
+    function onStorage(e) {
+      if (e.key === 'hky-count')  setBottleCount(parseInt(e.newValue || '0'));
+      if (e.key === 'hky-target') setBottleTarget(parseInt(e.newValue || '1500'));
+    }
+    function onBc(e) {
+      if (e.data.type === 'count')  setBottleCount(e.data.value);
+      if (e.data.type === 'target') setBottleTarget(e.data.value);
+    }
+    window.addEventListener('storage', onStorage);
+    bc?.addEventListener('message', onBc);
+    return () => { window.removeEventListener('storage', onStorage); bc?.removeEventListener('message', onBc); };
   }, []);
 
   const percent   = Math.min(100, Math.round((bottleCount / bottleTarget) * 100));
@@ -308,10 +299,10 @@ function BottleCounter({ isAdmin }) {
   const remaining = Math.max(0, bottleTarget - bottleCount);
 
   function handleBottleClick() {
-    const next = (countsRef.current[SESSION_ID] || 0) + 1;
-    countsRef.current[SESSION_ID] = next;
-    setBottleCount(Object.values(countsRef.current).reduce((s, n) => s + (n || 0), 0));
-    db.get('bottles').get(SESSION_ID).put(next);
+    const next = bottleCount + 1;
+    setBottleCount(next);
+    localStorage.setItem('hky-count', String(next));
+    bc?.postMessage({ type: 'count', value: next });
     setBounce(true); setPlusAnim(true);
     setTimeout(() => setBounce(false), 250);
     setTimeout(() => setPlusAnim(false), 600);
@@ -319,17 +310,18 @@ function BottleCounter({ isAdmin }) {
 
   function saveTarget() {
     const val = parseInt(tempTarget);
-    if (!isNaN(val) && val > 0) db.get('target').put(val);
+    if (!isNaN(val) && val > 0) {
+      setBottleTarget(val);
+      localStorage.setItem('hky-target', String(val));
+      bc?.postMessage({ type: 'target', value: val });
+    }
     setEditingTarget(false);
   }
 
   function resetAll() {
-    db.get('bottles').once(data => {
-      if (!data) return;
-      Object.keys(data).filter(k => k !== '_').forEach(k => db.get('bottles').get(k).put(0));
-    });
-    countsRef.current = {};
     setBottleCount(0);
+    localStorage.setItem('hky-count', '0');
+    bc?.postMessage({ type: 'count', value: 0 });
   }
 
   return (
